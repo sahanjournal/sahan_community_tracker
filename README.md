@@ -41,6 +41,8 @@ Posts from that account are classified as **publisher distribution**. Replies by
 ## Run locally
 
 ```bash
+export BSKY_HANDLE="sahanjournal.bsky.social"
+export BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 cd sahan_community_tracker_v0_5
 python3 server.py
 ```
@@ -76,7 +78,6 @@ For reliable Bluesky post search, configure a Bluesky app password using `BSKY_H
 - Saved evidence is not yet written to a shared database; results are session output in the dashboard.
 
 The next product step is a shared evidence ledger with **Keep / Reject / Notes** controls, followed by scheduled monitoring of saved directories.
-
 
 ## Bluesky 403 fix
 
