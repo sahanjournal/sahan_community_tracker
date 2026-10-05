@@ -1,6 +1,18 @@
+
+## New in v0.6
+
+The article-directory search now exposes four first-class newsroom controls:
+
+- **Topic / section** — loaded live from Sahan WordPress categories.
+- **Reporter** — loaded live from Sahan WordPress authors.
+- **Published timeframe** — preset windows plus custom start/end dates.
+- **Include comments & replies** — one switch controls whether Reddit comments and Bluesky replies are fetched after post discovery. Turn it off for a faster posts-only scan.
+
+These filters define the Sahan article corpus first. The selected stories are then sent to Reddit and Bluesky discovery, keeping platform searches consistent.
+
 # Sahan Journal Community Citation Tracker — v0.5
 
-v0.5.1 folds Bluesky into the existing article-directory and Reddit dashboard.
+v0.6 folds Bluesky into the existing article-directory and Reddit dashboard.
 
 ## What is live
 
@@ -22,7 +34,7 @@ Posts from those accounts are classified as **publisher distribution**. Comments
 
 ### Bluesky
 
-Bluesky thread/profile reads use the public AppView API. Post search may return HTTP 403 without a session, so v0.5.1 supports `BSKY_HANDLE` + `BSKY_APP_PASSWORD` for authenticated search through the account PDS.
+Bluesky thread/profile reads use the public AppView API. Post search may return HTTP 403 without a session, so v0.6 supports `BSKY_HANDLE` + `BSKY_APP_PASSWORD` for authenticated search through the account PDS.
 
 For each selected Sahan story the server searches up to three query forms:
 
@@ -41,8 +53,6 @@ Posts from that account are classified as **publisher distribution**. Replies by
 ## Run locally
 
 ```bash
-export BSKY_HANDLE="sahanjournal.bsky.social"
-export BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 cd sahan_community_tracker_v0_5
 python3 server.py
 ```
@@ -79,6 +89,11 @@ For reliable Bluesky post search, configure a Bluesky app password using `BSKY_H
 
 The next product step is a shared evidence ledger with **Keep / Reject / Notes** controls, followed by scheduled monitoring of saved directories.
 
+
 ## Bluesky 403 fix
 
 See `BLUESKY_AUTH_SETUP.md`. The app password belongs in environment variables, not in the code or dashboard.
+
+## v0.6.1 metadata fix
+
+Topic and reporter dropdowns load independently. Reporter discovery falls back to author data embedded in recent published posts if the WordPress public users endpoint is unavailable.

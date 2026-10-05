@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sahan Journal Community Citation Tracker v0.5.1.
+"""Sahan Journal Community Citation Tracker v0.6.1.
 
 Zero-dependency prototype server.
 - Proxies Sahan Journal's public WordPress REST API.
@@ -27,7 +27,7 @@ BSKY_SERVICE = os.environ.get("BSKY_SERVICE", "https://bsky.social").rstrip("/")
 BSKY_HANDLE = os.environ.get("BSKY_HANDLE", "").strip()
 BSKY_APP_PASSWORD = os.environ.get("BSKY_APP_PASSWORD", "").strip()
 BSKY_SESSION = {"accessJwt":"", "created":0.0}
-USER_AGENT = "SahanJournal-CommunityCitationTracker/0.5.1 (contact: contact@sahanjournal.com)"
+USER_AGENT = "SahanJournal-CommunityCitationTracker/0.6.1 (contact: contact@sahanjournal.com)"
 SAHAN_REDDIT = {"sahan-journal", "sahanjournalnews"}
 SAHAN_BSKY = {"sahanjournal.bsky.social"}
 CACHE = {}
@@ -272,7 +272,7 @@ def discover_bluesky(article, post_limit=5, reply_limit=8):
     posts.sort(key=lambda p:(p["relevance"],p["reply_count"],p["like_count"]+p["repost_count"]),reverse=True)
     posts=[p for p in posts if p["relevance"]>=20][:post_limit]
     for p in posts:
-        if p["reply_count"]>0 and (p["publisher_owned"] or p["relevance"]>=55):
+        if reply_limit > 0 and p["reply_count"]>0 and (p["publisher_owned"] or p["relevance"]>=55):
             try: p["replies"]=fetch_bsky_replies(p,reply_limit)
             except Exception as e: p["reply_error"]=str(e)
     return {"article":article,"queries":queries,"posts":posts,"errors":errors}
@@ -394,12 +394,56 @@ def discover_reddit(article, post_limit=5, comment_limit=8):
     posts = [p for p in posts if p["relevance"] >= 20][:post_limit]
     for p in posts:
         # Comments are important on publisher posts; also useful on strong independent matches.
-        if p["publisher_owned"] or (p["relevance"] >= 55 and p["num_comments"] > 0):
+        if comment_limit > 0 and (p["publisher_owned"] or (p["relevance"] >= 55 and p["num_comments"] > 0)):
             try:
                 p["comments"] = fetch_comments(p, comment_limit)
             except Exception as e:
                 p["comment_error"] = str(e)
     return {"article": article, "queries": queries, "posts": posts, "errors": errors}
+
+
+def wp_reporters_fallback(max_pages=5):
+    """Build a public reporter list from embedded authors on recent published posts.
+
+    Some WordPress installations restrict /wp/v2/users even though post authors are
+    exposed through _embed. This keeps the dashboard useful without requiring any
+    WordPress credentials.
+    """
+    found = {}
+    for page in range(1, max_pages + 1):
+        params = {
+            "status": "publish",
+            "per_page": "100",
+            "page": str(page),
+            "orderby": "date",
+            "order": "desc",
+            "_embed": "author",
+            "_fields": "author,_embedded",
+        }
+        url = WP_BASE + "/posts?" + urlencode(params)
+        try:
+            rows, headers = request_json(url, cache_key=f"wp:reporter-fallback:{page}", ttl=1800)
+        except HTTPError as e:
+            if e.code == 400 and page > 1:
+                break
+            raise
+        if not isinstance(rows, list) or not rows:
+            break
+        for row in rows:
+            aid = row.get("author")
+            embedded = (row.get("_embedded") or {}).get("author") or []
+            author = embedded[0] if embedded else {}
+            name = (author.get("name") or "").strip()
+            slug = (author.get("slug") or "").strip()
+            if aid and name:
+                found[int(aid)] = {"id": int(aid), "name": name, "slug": slug}
+        try:
+            total_pages = int(headers.get("X-WP-TotalPages") or headers.get("x-wp-totalpages") or max_pages)
+            if page >= total_pages:
+                break
+        except Exception:
+            pass
+    return sorted(found.values(), key=lambda x: x["name"].lower())
 
 class Handler(SimpleHTTPRequestHandler):
     def send_json(self, obj, status=200, extra_headers=None):
@@ -428,7 +472,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         p=urlparse(self.path); q=parse_qs(p.query)
         if p.path=="/api/health":
-            self.send_json({"ok":True,"version":"0.5.1","wordpress":WP_BASE,"reddit_mode":"public-json-prototype","bluesky_mode":"authenticated-search" if bsky_auth_configured() else "public-search-fallback","bluesky_auth_configured":bsky_auth_configured(),"bluesky_handle":BSKY_HANDLE if bsky_auth_configured() else "","known_bluesky_accounts":sorted(SAHAN_BSKY)}); return
+            self.send_json({"ok":True,"version":"0.6.1","wordpress":WP_BASE,"reddit_mode":"public-json-prototype","bluesky_mode":"authenticated-search" if bsky_auth_configured() else "public-search-fallback","bluesky_auth_configured":bsky_auth_configured(),"bluesky_handle":BSKY_HANDLE if bsky_auth_configured() else "","known_bluesky_accounts":sorted(SAHAN_BSKY)}); return
         if p.path=="/api/posts":
             params={k:v for k,v in q.items() if k in ALLOWED_POST_PARAMS}
             params["status"]=["publish"]
@@ -438,7 +482,19 @@ class Handler(SimpleHTTPRequestHandler):
         if p.path=="/api/categories":
             self.proxy_wp("/categories",{"per_page":"100","orderby":"count","order":"desc","_fields":"id,name,slug,count"},"wp:categories"); return
         if p.path=="/api/users":
-            self.proxy_wp("/users",{"per_page":"100","orderby":"name","order":"asc","_fields":"id,name,slug"},"wp:users"); return
+            # Prefer WordPress's public users endpoint. If the site restricts it,
+            # derive reporter names from embedded authors on published posts.
+            try:
+                url = WP_BASE + "/users?" + urlencode({"per_page":"100","orderby":"name","order":"asc","_fields":"id,name,slug"})
+                rows,_ = request_json(url, cache_key="wp:users", ttl=1800)
+                if isinstance(rows, list) and rows:
+                    self.send_json(rows); return
+            except Exception:
+                pass
+            try:
+                self.send_json(wp_reporters_fallback()); return
+            except Exception as e:
+                self.send_json({"error":"Could not load Sahan reporters","detail":str(e)},502); return
         if p.path=="/api/tags":
             params={"per_page":"100","orderby":"count","order":"desc","_fields":"id,name,slug,count"}
             if q.get("search"): params["search"]=q["search"]
@@ -456,7 +512,7 @@ class Handler(SimpleHTTPRequestHandler):
             articles=payload.get("articles") or []
             max_articles=max(1,min(int(payload.get("max_articles") or 10),12))
             post_limit=max(1,min(int(payload.get("post_limit") or 5),10))
-            comment_limit=max(1,min(int(payload.get("comment_limit") or 8),20))
+            comment_limit=max(0,min(int(payload.get("comment_limit",8)),20))
             if not articles:
                 self.send_json({"error":"No articles supplied"},400); return
             results=[]; global_errors=[]
@@ -479,7 +535,7 @@ class Handler(SimpleHTTPRequestHandler):
             articles=payload.get("articles") or []
             max_articles=max(1,min(int(payload.get("max_articles") or 10),12))
             post_limit=max(1,min(int(payload.get("post_limit") or 5),10))
-            reply_limit=max(1,min(int(payload.get("reply_limit") or 8),20))
+            reply_limit=max(0,min(int(payload.get("reply_limit",8)),20))
             if not articles:
                 self.send_json({"error":"No articles supplied"},400); return
             results=[]; global_errors=[]
@@ -498,6 +554,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__=="__main__":
     port=int(os.environ.get("PORT","8000"))
-    print(f"Sahan Citation Tracker v0.5.1: http://localhost:{port}")
+    print(f"Sahan Citation Tracker v0.6: http://localhost:{port}")
     print("Bluesky search auth:", "configured" if bsky_auth_configured() else "NOT configured (search may return 403)")
     ThreadingHTTPServer(("0.0.0.0",port), partial(Handler,directory=ROOT)).serve_forever()
