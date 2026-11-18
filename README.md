@@ -53,6 +53,8 @@ Posts from that account are classified as **publisher distribution**. Replies by
 ## Run locally
 
 ```bash
+export BSKY_HANDLE="sahanjournal.bsky.social"
+export BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 cd sahan_community_tracker_v0_5
 python3 server.py
 ```
