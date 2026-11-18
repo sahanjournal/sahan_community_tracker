@@ -188,6 +188,103 @@
         outline: 3px solid #ffd6d2;
         border-color: var(--red);
       }
+      .picker {
+        position: relative;
+      }
+      .picker-box {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid #bbb5ac;
+        background: #fff;
+        padding: 5px 6px;
+        min-height: 43px;
+        cursor: text;
+      }
+      .picker-box:focus-within {
+        outline: 3px solid #ffd6d2;
+        border-color: var(--red);
+      }
+      .picker-chips {
+        display: contents;
+      }
+      .picker-box input {
+        flex: 1 1 90px;
+        min-width: 90px;
+        border: 0;
+        padding: 5px 6px;
+        outline: none;
+      }
+      .picker-box input:focus {
+        outline: none;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--softred);
+        border: 1px solid #f3c4bf;
+        padding: 3px 4px 3px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        max-width: 100%;
+      }
+      .chip button {
+        border: 0;
+        background: none;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 3px;
+        color: var(--muted);
+      }
+      .chip button:hover {
+        color: #000;
+      }
+      .picker-list {
+        position: absolute;
+        z-index: 20;
+        left: 0;
+        right: 0;
+        top: calc(100% + 2px);
+        max-height: 280px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #bbb5ac;
+        box-shadow: var(--shadow);
+      }
+      .picker-opt {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .picker-opt .check {
+        width: 14px;
+        flex: none;
+        font-weight: 900;
+        color: var(--red);
+      }
+      .picker-opt .count {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .picker-opt.active {
+        background: var(--soft);
+      }
+      .picker-opt.all {
+        font-weight: 900;
+        border-bottom: 1px solid var(--line);
+      }
+      .picker-empty {
+        padding: 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
       .actions {
         display: flex;
         gap: 9px;
@@ -225,7 +322,7 @@
       }
       .workspace {
         display: grid;
-        grid-template-columns: 1.15fr 1.85fr;
+        grid-template-columns: 3fr 1fr;
         gap: 18px;
         margin-top: 18px;
       }
@@ -241,6 +338,16 @@
         justify-content: space-between;
         gap: 12px;
         align-items: center;
+      }
+      .subhead-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .btn.small-btn {
+        padding: 7px 11px;
+        font-size: 12px;
       }
       .subhead h2 {
         margin: 0;
@@ -316,6 +423,47 @@
       .badge.cite {
         background: #e8f0ff;
         color: #274e8f;
+      }
+      .badge.commentary {
+        background: #fff0d6;
+        color: #6b4300;
+        border-color: #f0d49c;
+      }
+      .badge.linkonly {
+        background: #f1efec;
+        color: #5c5852;
+      }
+      .result-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 18px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .result-filters label.check {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: 13px;
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .result-filters label.check input {
+        width: auto;
+      }
+      .result-filters input[type="search"] {
+        width: auto;
+        flex: 1 1 200px;
+        max-width: 320px;
+        padding: 7px 10px;
+      }
+      .result-filters .small {
+        margin-left: auto;
       }
       .reddit-controls {
         padding: 18px;
@@ -520,16 +668,42 @@
                   />
                 </div>
                 <div class="field">
-                  <label>Topic / section</label
+                  <label>Story category</label
                   ><select id="category">
-                    <option value="">All topics</option>
+                    <option value="">All categories</option>
+                    <option value="11">Immigration</option>
+                    <option value="2374">Environment</option>
+                    <option value="8">Education</option>
+                    <option value="19509">Arts &amp; Culture</option>
+                    <option value="15">Politics</option>
+                    <option value="26">Health</option>
+                    <option value="10">Housing</option>
+                    <option value="2">Business &amp; Work</option>
+                    <option value="19517">Public Safety</option>
                   </select>
                 </div>
                 <div class="field">
-                  <label>Reporter</label
-                  ><select id="author">
-                    <option value="">Any reporter</option>
-                  </select>
+                  <label for="authorInput">Reporters</label>
+                  <div class="picker" id="authorPicker">
+                    <div class="picker-box" id="authorBox">
+                      <span id="authorChips" class="picker-chips"></span
+                      ><input
+                        id="authorInput"
+                        placeholder="All reporters — type to search"
+                        autocomplete="off"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded="false"
+                        aria-controls="authorList"
+                      />
+                    </div>
+                    <div
+                      class="picker-list hidden"
+                      id="authorList"
+                      role="listbox"
+                      aria-multiselectable="true"
+                    ></div>
+                  </div>
                 </div>
                 <div class="field">
                   <label>Published timeframe</label
@@ -595,8 +769,6 @@
               <div class="actions">
                 <button class="btn primary" id="searchBtn">
                   Search archive</button
-                ><button class="btn light" id="selectAll">Select all</button
-                ><button class="btn light" id="selectNone">Select none</button
                 ><button class="btn dark" id="redditBtn" disabled>
                   Find Reddit mentions</button
                 ><button class="btn primary" id="blueskyBtn" disabled>
@@ -610,7 +782,14 @@
             <section class="subpanel">
               <div class="subhead">
                 <h2>Articles</h2>
-                <span id="articleCount" class="small">0 selected</span>
+                <div class="subhead-tools">
+                  <span id="articleCount" class="small">0 selected</span
+                  ><button class="btn light small-btn" id="selectAll">
+                    Select all</button
+                  ><button class="btn light small-btn" id="selectNone">
+                    Deselect all
+                  </button>
+                </div>
               </div>
               <div id="articles" class="article-list">
                 <div class="empty">Run an archive search.</div>
@@ -667,6 +846,20 @@
                 Developer Platform.
               </p>
             </div>
+            <div class="result-filters" id="redditFilters">
+              <input
+                type="search"
+                id="redditFilterText"
+                placeholder="Filter mentions by text or account"
+                aria-label="Filter mentions by text or account"
+              /><label class="check"
+                ><input type="checkbox" id="redditHideSahan" /> Hide Sahan’s
+                own posts</label
+              ><label class="check"
+                ><input type="checkbox" id="redditHideLinkOnly" /> Hide
+                link-only shares</label
+              ><span class="small" id="redditFilterCount"></span>
+            </div>
             <div id="redditResults" class="reddit-results">
               <div class="empty">
                 Select stories and click “Find Reddit mentions.”
@@ -718,6 +911,20 @@
                 users are surfaced separately.
               </p>
             </div>
+            <div class="result-filters" id="blueskyFilters">
+              <input
+                type="search"
+                id="blueskyFilterText"
+                placeholder="Filter mentions by text or account"
+                aria-label="Filter mentions by text or account"
+              /><label class="check"
+                ><input type="checkbox" id="blueskyHideSahan" /> Hide Sahan’s
+                own posts</label
+              ><label class="check"
+                ><input type="checkbox" id="blueskyHideLinkOnly" /> Hide
+                link-only shares</label
+              ><span class="small" id="blueskyFilterCount"></span>
+            </div>
             <div id="blueskyResults" class="reddit-results">
               <div class="empty">
                 Select stories and click “Find Bluesky mentions.”
@@ -750,8 +957,11 @@
           );
       let results = [],
         selected = new Set(),
-        categories = {},
-        authors = {};
+        authors = {},
+        reporters = [],
+        selectedAuthors = new Set(),
+        pickerOpts = [],
+        pickerActive = 0;
       function clean(x = "") {
         const d = document.createElement("div");
         d.innerHTML = x;
@@ -775,58 +985,26 @@
       }
       async function boot() {
         $("status").className = "status";
-        $("status").textContent = "Loading topics and reporters…";
-        const [catResult, userResult] = await Promise.allSettled([
-          jget("/api/categories"),
-          jget("/api/users"),
-        ]);
+        $("status").textContent = "Loading reporters…";
+        const [userResult] = await Promise.allSettled([jget("/api/users")]);
         let notes = [];
-        if (
-          catResult.status === "fulfilled" &&
-          Array.isArray(catResult.value)
-        ) {
-          const cats = catResult.value;
-          cats.forEach((c) => (categories[c.id] = c.name));
-          $("category").innerHTML =
-            '<option value="">All topics</option>' +
-            cats
-              .filter((c) => c.count > 0)
-              .map(
-                (c) =>
-                  `<option value="${c.id}">${esc(c.name)} (${c.count})</option>`,
-              )
-              .join("");
-          notes.push(`${cats.filter((c) => c.count > 0).length} topics`);
-        } else {
-          $("category").innerHTML =
-            '<option value="">All topics (metadata unavailable)</option>';
-          notes.push("topics unavailable");
-        }
         if (
           userResult.status === "fulfilled" &&
           Array.isArray(userResult.value)
         ) {
           const users = userResult.value;
+          reporters = users;
           users.forEach((u) => (authors[u.id] = u.name));
-          $("author").innerHTML =
-            '<option value="">Any reporter</option>' +
-            users
-              .map((u) => `<option value="${u.id}">${esc(u.name)}</option>`)
-              .join("");
+          renderAuthorChips();
           notes.push(`${users.length} reporters`);
         } else {
-          $("author").innerHTML =
-            '<option value="">Any reporter (metadata unavailable)</option>';
+          $("authorInput").placeholder = "Reporters unavailable";
+          $("authorInput").disabled = true;
           notes.push("reporters unavailable");
         }
-        if (
-          catResult.status === "rejected" ||
-          userResult.status === "rejected"
-        ) {
+        if (userResult.status === "rejected") {
           $("status").className = "status error";
           const errs = [];
-          if (catResult.status === "rejected")
-            errs.push("topics: " + catResult.reason.message);
           if (userResult.status === "rejected")
             errs.push("reporters: " + userResult.reason.message);
           $("status").textContent =
@@ -872,7 +1050,8 @@
         const p = new URLSearchParams();
         if ($("search").value.trim()) p.set("search", $("search").value.trim());
         if ($("category").value) p.set("categories", $("category").value);
-        if ($("author").value) p.set("author", $("author").value);
+        if (selectedAuthors.size)
+          p.set("coauthors", [...selectedAuthors].join(","));
         if ($("after").value) p.set("after", $("after").value + "T00:00:00");
         if ($("before").value) p.set("before", $("before").value + "T23:59:59");
         p.set("per_page", $("limit").value);
@@ -899,6 +1078,13 @@
           $("searchBtn").disabled = false;
         }
       }
+      function byline(r) {
+        return (
+          r.yoast_head_json?.author ||
+          r.author_name ||
+          ""
+        );
+      }
       function renderArticles() {
         $("articleCount").textContent = `${selected.size} selected`;
         $("redditBtn").disabled = !selected.size;
@@ -907,7 +1093,7 @@
           ? results
               .map(
                 (r) =>
-                  `<div class="article"><input type="checkbox" data-id="${r.id}" ${selected.has(r.id) ? "checked" : ""}><div><small>${esc((r.date || "").slice(0, 10))} · ${esc(authors[r.author] || "")}</small><strong><a href="${esc(r.link)}" target="_blank" rel="noreferrer">${esc(clean(r.title?.rendered))}</a></strong></div></div>`,
+                  `<div class="article"><input type="checkbox" data-id="${r.id}" ${selected.has(r.id) ? "checked" : ""}><div><small>${esc((r.date || "").slice(0, 10))}${byline(r) ? " · " + esc(byline(r)) : ""}</small><strong><a href="${esc(r.link)}" target="_blank" rel="noreferrer">${esc(clean(r.title?.rendered))}</a></strong></div></div>`,
               )
               .join("")
           : '<div class="empty">No matching articles.</div>';
@@ -945,6 +1131,8 @@
         const rows = chosen().slice(0, Number($("redditArticles").value));
         if (!rows.length) return;
         switchTab("redditTab");
+        lastReddit = null;
+        $("redditFilterCount").textContent = "";
         $("redditResults").innerHTML =
           '<div class="progress"><strong>Searching Reddit…</strong><br>This may take several seconds because the prototype searches and deduplicates multiple queries per story.</div>';
         const payload = {
@@ -959,6 +1147,7 @@
             url: r.link,
             date: r.date,
             slug: r.slug,
+            byline: byline(r),
           })),
         };
         try {
@@ -979,25 +1168,64 @@
         else if (c.explicit_sahan_reference) cls += " cite";
         return `<div class="${cls}"><div class="meta">u/${esc(c.author)} · score ${esc(c.score)} · ${esc((c.created_at || "").slice(0, 10))}</div><div class="badges">${c.action_signal ? '<span class="badge action">reported action</span>' : ""}${c.explicit_sahan_reference ? '<span class="badge cite">mentions Sahan</span>' : ""}${c.substantive ? '<span class="badge">substantive</span>' : ""}</div><div class="body">${esc(c.body)}</div><div class="links"><a href="${esc(c.permalink)}" target="_blank" rel="noreferrer">Open comment</a></div></div>`;
       }
-      function renderPost(p) {
-        const own = p.publisher_owned;
-        return `<article class="postcard"><div class="posttop"><div><div class="meta">r/${esc(p.subreddit)} · u/${esc(p.author)} · ${esc((p.created_at || "").slice(0, 10))}</div><h4>${esc(p.title)}</h4></div><div class="meta">score ${esc(p.score)} · ${esc(p.num_comments)} comments · relevance ${esc(p.relevance)}</div></div><div class="badges"><span class="badge ${own ? "publisher" : "independent"}">${own ? "Sahan distribution" : "independent/other"}</span>${p.match_reasons.map((r) => `<span class="badge">${esc(r)}</span>`).join("")}</div><div class="reason">${own ? "The post itself is not counted as independent pickup. Reader comments below can be counted as audience/community evidence." : "This is a candidate for independent circulation; verify the connection to the Sahan article before counting it."}</div><div class="links"><a href="${esc(p.permalink)}" target="_blank" rel="noreferrer">Open Reddit post</a><a href="${esc(p.article_url)}" target="_blank" rel="noreferrer">Open Sahan story</a></div>${p.comments?.length ? `<div class="comments"><strong>${p.comments.length} reader comment${p.comments.length === 1 ? "" : "s"} surfaced</strong>${p.comments.map(renderComment).join("")}</div>` : p.comment_error ? `<div class="errorbox">Comments could not be loaded: ${esc(p.comment_error)}</div>` : ""}</article>`;
+      function shareBadge(p) {
+        if (!p.share_type) return "";
+        const quote = p.is_quote ? "Quote post · " : "";
+        return p.share_type === "commentary"
+          ? `<span class="badge commentary" title="The poster added their own words beyond the link, headline and byline">${quote}Own commentary</span>`
+          : `<span class="badge linkonly" title="Only the link, headline, summary or byline — no original words">${quote}Link share only</span>`;
       }
-      function renderReddit(data) {
-        let html = "";
+      function mentionVisible(p, pfx, text) {
+        if ($(pfx + "HideSahan").checked && p.publisher_owned) return false;
+        if ($(pfx + "HideLinkOnly").checked && p.share_type === "link_only")
+          return false;
+        const q = $(pfx + "FilterText").value.trim().toLowerCase();
+        return !q || text.toLowerCase().includes(q);
+      }
+      function renderMentionGroups(data, pfx, renderOne, textOf, emptyMsg, noneMsg) {
+        let html = "",
+          shown = 0,
+          total = 0;
         if (data.errors?.length)
           html += `<div class="errorbox">${data.errors.map(esc).join("\n")}</div>`;
         (data.results || []).forEach((g) => {
           html += `<section class="story-group"><h3>${esc(g.article.title)}</h3><p>${esc(g.article.url)}</p>`;
           if (g.errors?.length)
             html += `<div class="errorbox">${g.errors.map(esc).join("\n")}</div>`;
-          html += g.posts?.length
-            ? g.posts.map(renderPost).join("")
-            : '<div class="empty">No plausible Reddit matches returned for this story in this run.</div>';
+          const posts = g.posts || [];
+          const vis = posts.filter((p) => mentionVisible(p, pfx, textOf(p)));
+          total += posts.length;
+          shown += vis.length;
+          if (!posts.length) html += `<div class="empty">${emptyMsg}</div>`;
+          else {
+            html += vis.map(renderOne).join("");
+            if (vis.length < posts.length)
+              html += `<div class="small">${posts.length - vis.length} mention${posts.length - vis.length === 1 ? "" : "s"} hidden by filters</div>`;
+          }
           html += "</section>";
         });
-        $("redditResults").innerHTML =
-          html || '<div class="empty">No Reddit results returned.</div>';
+        $(pfx + "Results").innerHTML = html || `<div class="empty">${noneMsg}</div>`;
+        $(pfx + "FilterCount").textContent = total
+          ? `Showing ${shown} of ${total} mention${total === 1 ? "" : "s"}`
+          : "";
+      }
+      let lastReddit = null,
+        lastBluesky = null;
+      function renderPost(p) {
+        const own = p.publisher_owned;
+        return `<article class="postcard"><div class="posttop"><div><div class="meta">r/${esc(p.subreddit)} · u/${esc(p.author)} · ${esc((p.created_at || "").slice(0, 10))}</div><h4>${esc(p.title)}</h4></div><div class="meta">score ${esc(p.score)} · ${esc(p.num_comments)} comments · relevance ${esc(p.relevance)}</div></div><div class="badges"><span class="badge ${own ? "publisher" : "independent"}">${own ? "Sahan distribution" : "independent/other"}</span>${shareBadge(p)}${p.match_reasons.map((r) => `<span class="badge">${esc(r)}</span>`).join("")}</div><div class="reason">${own ? "The post itself is not counted as independent pickup. Reader comments below can be counted as audience/community evidence." : "This is a candidate for independent circulation; verify the connection to the Sahan article before counting it."}</div><div class="links"><a href="${esc(p.permalink)}" target="_blank" rel="noreferrer">Open Reddit post</a><a href="${esc(p.article_url)}" target="_blank" rel="noreferrer">Open Sahan story</a></div>${p.comments?.length ? `<div class="comments"><strong>${p.comments.length} reader comment${p.comments.length === 1 ? "" : "s"} surfaced</strong>${p.comments.map(renderComment).join("")}</div>` : p.comment_error ? `<div class="errorbox">Comments could not be loaded: ${esc(p.comment_error)}</div>` : ""}</article>`;
+      }
+      function renderReddit(data) {
+        if (data) lastReddit = data;
+        if (!lastReddit) return;
+        renderMentionGroups(
+          lastReddit,
+          "reddit",
+          renderPost,
+          (p) => `${p.title} ${p.selftext} u/${p.author} r/${p.subreddit}`,
+          "No plausible Reddit matches returned for this story in this run.",
+          "No Reddit results returned.",
+        );
       }
       function renderBskyReply(c) {
         let cls = "comment";
@@ -1010,28 +1238,26 @@
         const display = p.author_display_name
           ? `${esc(p.author_display_name)} · `
           : "";
-        return `<article class="postcard"><div class="posttop"><div><div class="meta">${display}@${esc(p.author_handle)} · ${esc((p.created_at || "").slice(0, 10))}</div><h4>${esc(p.text || p.embedded_title || "Bluesky post")}</h4></div><div class="meta">${esc(p.like_count)} likes · ${esc(p.repost_count)} reposts · ${esc(p.reply_count)} replies · relevance ${esc(p.relevance)}</div></div><div class="badges"><span class="badge ${own ? "publisher" : "independent"}">${own ? "Sahan distribution" : "independent/other"}</span>${(p.match_reasons || []).map((r) => `<span class="badge">${esc(r)}</span>`).join("")}</div><div class="reason">${own ? "The post itself is publisher distribution. Replies from other users can be counted as audience/community evidence." : "This is a candidate for independent circulation; verify the connection to the Sahan article before counting it."}</div><div class="links"><a href="${esc(p.post_url)}" target="_blank" rel="noreferrer">Open Bluesky post</a><a href="${esc(p.article_url)}" target="_blank" rel="noreferrer">Open Sahan story</a></div>${p.replies?.length ? `<div class="comments"><strong>${p.replies.length} reader repl${p.replies.length === 1 ? "y" : "ies"} surfaced</strong>${p.replies.map(renderBskyReply).join("")}</div>` : p.reply_error ? `<div class="errorbox">Replies could not be loaded: ${esc(p.reply_error)}</div>` : ""}</article>`;
+        return `<article class="postcard"><div class="posttop"><div><div class="meta">${display}@${esc(p.author_handle)} · ${esc((p.created_at || "").slice(0, 10))}</div><h4>${esc(p.text || p.embedded_title || "Bluesky post")}</h4></div><div class="meta">${esc(p.like_count)} likes · ${esc(p.repost_count)} reposts · ${esc(p.reply_count)} replies · relevance ${esc(p.relevance)}</div></div><div class="badges"><span class="badge ${own ? "publisher" : "independent"}">${own ? "Sahan distribution" : "independent/other"}</span>${shareBadge(p)}${(p.match_reasons || []).map((r) => `<span class="badge">${esc(r)}</span>`).join("")}</div><div class="reason">${own ? "The post itself is publisher distribution. Replies from other users can be counted as audience/community evidence." : "This is a candidate for independent circulation; verify the connection to the Sahan article before counting it."}</div><div class="links"><a href="${esc(p.post_url)}" target="_blank" rel="noreferrer">Open Bluesky post</a><a href="${esc(p.article_url)}" target="_blank" rel="noreferrer">Open Sahan story</a></div>${p.replies?.length ? `<div class="comments"><strong>${p.replies.length} reader repl${p.replies.length === 1 ? "y" : "ies"} surfaced</strong>${p.replies.map(renderBskyReply).join("")}</div>` : p.reply_error ? `<div class="errorbox">Replies could not be loaded: ${esc(p.reply_error)}</div>` : ""}</article>`;
       }
       function renderBluesky(data) {
-        let html = "";
-        if (data.errors?.length)
-          html += `<div class="errorbox">${data.errors.map(esc).join("\n")}</div>`;
-        (data.results || []).forEach((g) => {
-          html += `<section class="story-group"><h3>${esc(g.article.title)}</h3><p>${esc(g.article.url)}</p>`;
-          if (g.errors?.length)
-            html += `<div class="errorbox">${g.errors.map(esc).join("\n")}</div>`;
-          html += g.posts?.length
-            ? g.posts.map(renderBskyPost).join("")
-            : '<div class="empty">No plausible Bluesky matches returned for this story in this run.</div>';
-          html += "</section>";
-        });
-        $("blueskyResults").innerHTML =
-          html || '<div class="empty">No Bluesky results returned.</div>';
+        if (data) lastBluesky = data;
+        if (!lastBluesky) return;
+        renderMentionGroups(
+          lastBluesky,
+          "bluesky",
+          renderBskyPost,
+          (p) => `${p.text} ${p.embedded_title} @${p.author_handle} ${p.author_display_name}`,
+          "No plausible Bluesky matches returned for this story in this run.",
+          "No Bluesky results returned.",
+        );
       }
       async function discoverBluesky() {
         const rows = chosen().slice(0, Number($("blueskyArticles").value));
         if (!rows.length) return;
         switchTab("blueskyTab");
+        lastBluesky = null;
+        $("blueskyFilterCount").textContent = "";
         $("blueskyResults").innerHTML =
           '<div class="progress"><strong>Searching Bluesky…</strong><br>The prototype searches several query forms per story, deduplicates posts, and loads replies for the strongest matches.</div>';
         const payload = {
@@ -1046,6 +1272,7 @@
             url: r.link,
             date: r.date,
             slug: r.slug,
+            byline: byline(r),
           })),
         };
         try {
@@ -1063,6 +1290,111 @@
       document
         .querySelectorAll(".tab")
         .forEach((t) => (t.onclick = () => switchTab(t.dataset.tab)));
+      // Reporter picker: type to search, click or Enter to toggle, multi-select.
+      function renderAuthorChips() {
+        $("authorChips").innerHTML = [...selectedAuthors]
+          .map(
+            (id) =>
+              `<span class="chip">${esc(authors[id] || id)}<button type="button" data-remove="${id}" aria-label="Remove ${esc(authors[id] || id)}">×</button></span>`,
+          )
+          .join("");
+        $("authorInput").placeholder = selectedAuthors.size
+          ? "Add reporter…"
+          : "All reporters — type to search";
+      }
+      function renderAuthorList() {
+        const q = $("authorInput").value.trim().toLowerCase();
+        const matches = reporters.filter(
+          (r) => !q || r.name.toLowerCase().includes(q),
+        );
+        pickerOpts = [{ id: "", name: "All reporters" }, ...matches];
+        if (pickerActive >= pickerOpts.length) pickerActive = 0;
+        $("authorList").innerHTML =
+          pickerOpts
+            .map((r, i) => {
+              const on = r.id === "" ? !selectedAuthors.size : selectedAuthors.has(r.id);
+              return `<div class="picker-opt ${r.id === "" ? "all" : ""} ${i === pickerActive ? "active" : ""}" role="option" aria-selected="${on}" data-idx="${i}"><span class="check">${on ? "✓" : ""}</span><span>${esc(r.name)}</span>${r.count ? `<span class="count">${r.count}</span>` : ""}</div>`;
+            })
+            .join("") +
+          (matches.length ? "" : '<div class="picker-empty">No matching reporters</div>');
+        const act = $("authorList").querySelector(".picker-opt.active");
+        if (act) act.scrollIntoView({ block: "nearest" });
+      }
+      function openAuthorList() {
+        $("authorList").classList.remove("hidden");
+        $("authorInput").setAttribute("aria-expanded", "true");
+        renderAuthorList();
+      }
+      function closeAuthorList() {
+        $("authorList").classList.add("hidden");
+        $("authorInput").setAttribute("aria-expanded", "false");
+      }
+      function toggleAuthorOpt(idx) {
+        const r = pickerOpts[idx];
+        if (!r) return;
+        if (r.id === "") selectedAuthors.clear();
+        else if (selectedAuthors.has(r.id)) selectedAuthors.delete(r.id);
+        else selectedAuthors.add(r.id);
+        $("authorInput").value = "";
+        pickerActive = idx === 0 ? 0 : pickerActive;
+        renderAuthorChips();
+        renderAuthorList();
+        $("authorInput").focus();
+      }
+      $("authorBox").onclick = (e) => {
+        const rm = e.target.closest("[data-remove]");
+        if (rm) {
+          selectedAuthors.delete(Number(rm.dataset.remove));
+          renderAuthorChips();
+          if (!$("authorList").classList.contains("hidden")) renderAuthorList();
+          e.stopPropagation();
+          return;
+        }
+        $("authorInput").focus();
+        openAuthorList();
+      };
+      $("authorInput").onfocus = openAuthorList;
+      $("authorInput").oninput = () => {
+        pickerActive = $("authorInput").value.trim() ? 1 : 0;
+        openAuthorList();
+      };
+      $("authorInput").onkeydown = (e) => {
+        const open = !$("authorList").classList.contains("hidden");
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!open) return openAuthorList();
+          const n = pickerOpts.length;
+          pickerActive = (pickerActive + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
+          renderAuthorList();
+        } else if (e.key === "Enter") {
+          if (open) {
+            e.preventDefault();
+            toggleAuthorOpt(pickerActive);
+          }
+        } else if (e.key === "Escape") {
+          closeAuthorList();
+        } else if (e.key === "Backspace" && !$("authorInput").value && selectedAuthors.size) {
+          selectedAuthors.delete([...selectedAuthors].pop());
+          renderAuthorChips();
+          renderAuthorList();
+        } else if (e.key === "Tab") {
+          closeAuthorList();
+        }
+      };
+      $("authorList").onmousedown = (e) => e.preventDefault(); // keep input focus
+      $("authorList").onclick = (e) => {
+        const opt = e.target.closest(".picker-opt");
+        if (opt) toggleAuthorOpt(Number(opt.dataset.idx));
+      };
+      document.addEventListener("click", (e) => {
+        if (!$("authorPicker").contains(e.target)) closeAuthorList();
+      });
+      ["HideSahan", "HideLinkOnly"].forEach((k) => {
+        $("reddit" + k).onchange = () => renderReddit();
+        $("bluesky" + k).onchange = () => renderBluesky();
+      });
+      $("redditFilterText").oninput = () => renderReddit();
+      $("blueskyFilterText").oninput = () => renderBluesky();
       $("searchBtn").onclick = searchArchive;
       $("selectAll").onclick = () => {
         selected = new Set(results.map((r) => r.id));

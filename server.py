@@ -13,6 +13,7 @@ with an approved Reddit Developer Platform integration.
 """
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse, parse_qs, urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -34,7 +35,7 @@ CACHE = {}
 CACHE_TTL = 300
 
 ALLOWED_POST_PARAMS = {
-    "search","after","before","categories","categories_exclude","tags","author",
+    "search","after","before","categories","categories_exclude","tags","author","coauthors",
     "orderby","order","page","per_page","slug","include","exclude"
 }
 
@@ -81,6 +82,36 @@ def overlap_score(a, b):
 def keyword_phrase(title, n=6):
     words = [w for w in re.findall(r"[A-Za-z0-9’'-]+", title or "") if len(w) >= 4 and w.lower() not in STOP]
     return " ".join(words[:n])
+
+# Words that don't count as original commentary when someone shares a link.
+SHARE_BOILERPLATE = {
+    "sahan","journal","sahanjournal","via","by","from","read","reads","new","story","stories",
+    "report","reports","reporting","reported","article","here","more","link","check","out",
+    "the","a","an","and","of","in","on","to","for","at","is","with","h/t","ht","latest",
+    "today","news","bsky","social","com","https","http","www","written","writes","photo",
+    "photos","credit","newsletter","subscribe","share","shared","sharing","thread","1/","🧵",
+}
+
+def classify_share(text, *source_texts):
+    """Label a post as original commentary or a bare link share.
+
+    Strips URLs, @handles, #hashtags, every word that appears in the article's
+    headline / link-card title / summary / byline, and share boilerplate
+    ("via Sahan Journal", "new story", ...). Three or more remaining words count
+    as the poster's own commentary.
+    """
+    t = (text or "").replace("\u2019", "'")
+    t = re.sub(r"https?://\S+", " ", t)
+    t = re.sub(r"\b[\w.-]+\.(?:com|org|net|news|social|co|ly)(?:/\S*)?", " ", t, flags=re.I)
+    t = re.sub(r"[@#][\w.-]+", " ", t)
+    words = re.findall(r"[a-z0-9']+", t.lower())
+    source = set(re.findall(r"[a-z0-9']+", " ".join(x or "" for x in source_texts).replace("\u2019", "'").lower()))
+    leftover = [w.strip("'") for w in words if w not in source and w.strip("'") not in SHARE_BOILERPLATE and len(w.strip("'")) > 1]
+    commentary = len(leftover) >= 3
+    return {
+        "share_type": "commentary" if commentary else "link_only",
+        "original_word_count": len(leftover),
+    }
 
 def unix_iso(ts):
     try: return datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat()
@@ -165,7 +196,14 @@ def bsky_normalize(post, article):
     author = post.get("author") or {}
     record = post.get("record") or {}
     embed = post.get("embed") or {}
-    external = embed.get("external") or {}
+    etype = embed.get("$type") or ""
+    external = embed.get("external") or (embed.get("media") or {}).get("external") or {}
+    is_quote = etype.startswith("app.bsky.embed.record")
+    quoted = embed.get("record") or {}
+    if etype.startswith("app.bsky.embed.recordWithMedia"):
+        quoted = quoted.get("record") or {}
+    quoted_handle = ((quoted.get("author") or {}).get("handle") or "").lower()
+    quoted_text = (quoted.get("value") or {}).get("text") or ""
     uri = post.get("uri") or ""
     handle = author.get("handle") or ""
     text = record.get("text") or ""
@@ -192,7 +230,12 @@ def bsky_normalize(post, article):
         relevance += 10; reasons.append("names Sahan Journal")
     if publisher:
         reasons.append("posted by Sahan account")
+    if is_quote and quoted_handle in SAHAN_BSKY:
+        reasons.append("quotes a Sahan post")
+    share = classify_share(text, article_title, etitle, external.get("description") or "",
+                           article.get("byline", ""), quoted_text)
     return {
+        **share, "is_quote": is_quote, "quoted_handle": quoted_handle,
         "uri": uri, "post_url": bsky_post_url(uri, handle),
         "author_handle": handle, "author_display_name": author.get("displayName") or "",
         "text": text[:1800], "created_at": record.get("createdAt") or post.get("indexedAt") or "",
@@ -307,7 +350,9 @@ def reddit_post_from_child(child, article):
         reasons.append("posted by Sahan account")
     relevance = min(100, relevance)
     permalink = d.get("permalink") or ""
+    share = classify_share(title + " " + selftext, article_title, article.get("byline", ""))
     return {
+        **share,
         "id": d.get("id"), "fullname": d.get("name"), "title": title,
         "author": author, "subreddit": d.get("subreddit") or "",
         "created_utc": d.get("created_utc"), "created_at": unix_iso(d.get("created_utc")),
@@ -402,48 +447,64 @@ def discover_reddit(article, post_limit=5, comment_limit=8):
     return {"article": article, "queries": queries, "posts": posts, "errors": errors}
 
 
-def wp_reporters_fallback(max_pages=5):
-    """Build a public reporter list from embedded authors on recent published posts.
+def wp_reporters_from_bylines(max_pages=10):
+    """Build the reporter list from bylines on recent published posts.
 
-    Some WordPress installations restrict /wp/v2/users even though post authors are
-    exposed through _embed. This keeps the dashboard useful without requiring any
-    WordPress credentials.
+    Sahan uses Co-Authors Plus. The public API blocks /users, /coauthors and
+    embedded authors, but each post exposes its co-author term IDs ("coauthors")
+    and its byline text (yoast_head_json.author, e.g. "Joey Peters, Mohamed Ibrahim")
+    in the same order. Zipping the two gives term ID -> name, and posts can then
+    be filtered with ?coauthors={id}, which includes co-authored stories.
     """
-    found = {}
-    for page in range(1, max_pages + 1):
+    def fetch_page(page):
         params = {
             "status": "publish",
             "per_page": "100",
             "page": str(page),
             "orderby": "date",
             "order": "desc",
-            "_embed": "author",
-            "_fields": "author,_embedded",
+            "_fields": "coauthors,author_name,yoast_head_json.author",
         }
         url = WP_BASE + "/posts?" + urlencode(params)
         try:
-            rows, headers = request_json(url, cache_key=f"wp:reporter-fallback:{page}", ttl=1800)
+            return request_json(url, cache_key=f"wp:reporter-bylines:{page}", ttl=1800)
         except HTTPError as e:
             if e.code == 400 and page > 1:
-                break
+                return [], {}
             raise
-        if not isinstance(rows, list) or not rows:
-            break
-        for row in rows:
-            aid = row.get("author")
-            embedded = (row.get("_embedded") or {}).get("author") or []
-            author = embedded[0] if embedded else {}
-            name = (author.get("name") or "").strip()
-            slug = (author.get("slug") or "").strip()
-            if aid and name:
-                found[int(aid)] = {"id": int(aid), "name": name, "slug": slug}
-        try:
-            total_pages = int(headers.get("X-WP-TotalPages") or headers.get("x-wp-totalpages") or max_pages)
-            if page >= total_pages:
-                break
-        except Exception:
-            pass
-    return sorted(found.values(), key=lambda x: x["name"].lower())
+
+    rows, headers = fetch_page(1)
+    all_rows = list(rows) if isinstance(rows, list) else []
+    try:
+        total_pages = int(headers.get("X-WP-TotalPages") or headers.get("x-wp-totalpages") or max_pages)
+    except Exception:
+        total_pages = max_pages
+    last = min(max_pages, total_pages)
+    if last > 1:
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            for more, _ in pool.map(fetch_page, range(2, last + 1)):
+                if isinstance(more, list):
+                    all_rows.extend(more)
+
+    names = {}   # term id -> {name: votes}
+    counts = {}  # term id -> stories seen
+    for row in all_rows:
+        ids = [int(x) for x in (row.get("coauthors") or [])]
+        byline = ((row.get("yoast_head_json") or {}).get("author") or "").strip()
+        parts = [html.unescape(x).strip() for x in byline.split(",") if x.strip()]
+        if not parts and row.get("author_name") and len(ids) == 1:
+            parts = [html.unescape(row["author_name"]).strip()]
+        if len(parts) != len(ids):
+            continue  # ambiguous byline; skip rather than mislabel
+        for tid, name in zip(ids, parts):
+            votes = names.setdefault(tid, {})
+            votes[name] = votes.get(name, 0) + 1
+            counts[tid] = counts.get(tid, 0) + 1
+    out = [
+        {"id": tid, "name": max(votes, key=votes.get), "count": counts[tid]}
+        for tid, votes in names.items()
+    ]
+    return sorted(out, key=lambda x: x["name"].lower())
 
 class Handler(SimpleHTTPRequestHandler):
     def send_json(self, obj, status=200, extra_headers=None):
@@ -476,23 +537,15 @@ class Handler(SimpleHTTPRequestHandler):
         if p.path=="/api/posts":
             params={k:v for k,v in q.items() if k in ALLOWED_POST_PARAMS}
             params["status"]=["publish"]
-            params["_fields"]=["id,date,modified,link,slug,title,excerpt,author,categories,tags"]
+            params["_fields"]=["id,date,modified,link,slug,title,excerpt,author,author_name,yoast_head_json.author,categories,tags"]
             if "per_page" not in params: params["per_page"]=["25"]
             self.proxy_wp("/posts",params); return
         if p.path=="/api/categories":
             self.proxy_wp("/categories",{"per_page":"100","orderby":"count","order":"desc","_fields":"id,name,slug,count"},"wp:categories"); return
         if p.path=="/api/users":
-            # Prefer WordPress's public users endpoint. If the site restricts it,
-            # derive reporter names from embedded authors on published posts.
+            # Reporters keyed by Co-Authors Plus term ID (use with ?coauthors=).
             try:
-                url = WP_BASE + "/users?" + urlencode({"per_page":"100","orderby":"name","order":"asc","_fields":"id,name,slug"})
-                rows,_ = request_json(url, cache_key="wp:users", ttl=1800)
-                if isinstance(rows, list) and rows:
-                    self.send_json(rows); return
-            except Exception:
-                pass
-            try:
-                self.send_json(wp_reporters_fallback()); return
+                self.send_json(wp_reporters_from_bylines()); return
             except Exception as e:
                 self.send_json({"error":"Could not load Sahan reporters","detail":str(e)},502); return
         if p.path=="/api/tags":
